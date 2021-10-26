@@ -71,7 +71,7 @@ def interpPoints(x, y):
             curve_y = func(curve_x, *popt)
     return curve_x.astype(int), curve_y.astype(int)
 
-def read_keypoints(json_input, size, random_drop_prob=0, remove_face_labels=False, basic_point_only=False):
+def read_keypoints(json_input, size, random_drop_prob=0, remove_face_labels=False, basic_point_only=False, original_data=False):
     with io.open(json_input, encoding='utf-8') as f:
         keypoint_dicts = json.loads(f.read())["people"]
 
@@ -80,6 +80,10 @@ def read_keypoints(json_input, size, random_drop_prob=0, remove_face_labels=Fals
     pose_img = np.zeros((h, w, 3), np.uint8)
     for keypoint_dict in keypoint_dicts:    
         pose_pts = np.array(keypoint_dict["pose_keypoints_2d"]).reshape(25, 3)
+        if original_data:
+            for pose_pt in pose_pts:
+                pose_pt[0] = (pose_pt[0] + 1) * 600
+                pose_pt[1] = (pose_pt[1] + 1) * 360
         # face_pts = np.array(keypoint_dict["face_keypoints_2d"]).reshape(70, 3)
         face_pts = np.zeros(210).reshape(70, 3)
         # hand_pts_l = np.array(keypoint_dict["hand_left_keypoints_2d"]).reshape(21, 3)
@@ -89,6 +93,44 @@ def read_keypoints(json_input, size, random_drop_prob=0, remove_face_labels=Fals
         pts = [extract_valid_keypoints(pts, edge_lists) for pts in [pose_pts, face_pts, hand_pts_l, hand_pts_r]]
         pose_img += connect_keypoints(pts, edge_lists, size, random_drop_prob, remove_face_labels, basic_point_only)
     return pose_img
+
+
+def read_keypoints_np(pose_pts, size, random_drop_prob=0, remove_face_labels=False, basic_point_only=False, original_data=False):
+    edge_lists = define_edge_lists(basic_point_only)
+    w, h = size
+    pose_img = np.zeros((h, w, 3), np.uint8)
+    if original_data:
+        for pose_pt in pose_pts:
+            pose_pt[0] = (pose_pt[0] + 1) * 600
+            pose_pt[1] = (pose_pt[1] + 1) * 360
+    # face_pts = np.array(keypoint_dict["face_keypoints_2d"]).reshape(70, 3)
+    face_pts = np.zeros(210).reshape(70, 3)
+    # hand_pts_l = np.array(keypoint_dict["hand_left_keypoints_2d"]).reshape(21, 3)
+    hand_pts_l = np.zeros(63).reshape(21, 3)
+    # hand_pts_r = np.array(keypoint_dict["hand_right_keypoints_2d"]).reshape(21, 3)
+    hand_pts_r = np.zeros(63).reshape(21, 3)
+    pts = [extract_valid_keypoints(pts, edge_lists) for pts in [pose_pts, face_pts, hand_pts_l, hand_pts_r]]
+    pose_img += connect_keypoints(pts, edge_lists, size, random_drop_prob, remove_face_labels, basic_point_only)
+    return pose_img
+
+def read_keypoints_np_17(pose_pts, size, random_drop_prob=0, remove_face_labels=False, basic_point_only=False, original_data=False):
+    edge_lists = define_edge_lists_17(basic_point_only)
+    w, h = size
+    pose_img = np.zeros((h, w, 3), np.uint8)
+    if original_data:
+        for pose_pt in pose_pts:
+            pose_pt[0] = (pose_pt[0] + 1) * 600
+            pose_pt[1] = (pose_pt[1] + 1) * 360
+    # face_pts = np.array(keypoint_dict["face_keypoints_2d"]).reshape(70, 3)
+    face_pts = np.zeros(210).reshape(70, 3)
+    # hand_pts_l = np.array(keypoint_dict["hand_left_keypoints_2d"]).reshape(21, 3)
+    hand_pts_l = np.zeros(63).reshape(21, 3)
+    # hand_pts_r = np.array(keypoint_dict["hand_right_keypoints_2d"]).reshape(21, 3)
+    hand_pts_r = np.zeros(63).reshape(21, 3)
+    pts = [extract_valid_keypoints(pts, edge_lists) for pts in [pose_pts, face_pts, hand_pts_l, hand_pts_r]]
+    pose_img += connect_keypoints(pts, edge_lists, size, random_drop_prob, remove_face_labels, basic_point_only)
+    return pose_img
+
 
 def extract_valid_keypoints(pts, edge_lists):
     pose_edge_list, _, hand_edge_list, _, face_list = edge_lists
@@ -201,4 +243,31 @@ def define_edge_lists(basic_point_only):
                  [[42,43,44,45], [45,46,47,42]], # right eye
                  [range(48, 55), [54,55,56,57,58,59,48]], # mouth
                 ]
+    return pose_edge_list, pose_color_list, hand_edge_list, hand_color_list, face_list
+
+def define_edge_lists_17(basic_point_only):
+    hand_edge_list = []
+    hand_color_list = []
+    face_list = []
+
+    pose_color_list = []
+    pose_edge_list = []
+
+    head = [6, 4, 2, 0, 1, 3, 5]  # link head to shoulders as done in MMDetection
+    trunk_joints = [6, 5, 11, 12, 6]
+    arm_joints = [10, 8, 6, 5, 7, 9]
+    leg_joints = [16, 14, 12, 11, 13, 15]
+
+    head_colour = [0, 255, 0]
+    trunk_colour = [255, 51, 255]
+    arms_colours = [51, 153, 255]
+    legs_colour = [255, 128, 0]
+
+    for nodes, colours in zip((head, trunk_joints, arm_joints, leg_joints),
+                              (head_colour, trunk_colour, arms_colours, legs_colour)):
+
+        for i in range(len(nodes)-1):
+            pose_edge_list.append([nodes[i], nodes[i+1]])
+            pose_color_list.append(colours)
+
     return pose_edge_list, pose_color_list, hand_edge_list, hand_color_list, face_list
